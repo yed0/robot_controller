@@ -1,0 +1,9 @@
+# Runtime dependencies
+numpy>=1.24           # arm control (02_arm_control.py)
+
+# Optional: only needed if switching to the USB/BT gamepad backend (BACKEND="inputs")
+# inputs>=0.5
+
+# unitree_sdk2py must be installed separately from the Unitree SDK release.
+# It is not available on PyPI. Install with:
+#   pip install -e /path/to/unitree_sdk2py

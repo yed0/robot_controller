@@ -1,0 +1,19 @@
+[Unit]
+Description=Unitree G1 EDU Startup Controller
+After=network.target
+
+[Service]
+Type=simple
+User=unitree
+WorkingDirectory=/home/unitree/robot_controller
+
+ExecStart=/usr/bin/python3 /home/unitree/robot_controller/main.py
+
+Restart=on-failure
+RestartSec=5
+
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
