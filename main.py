@@ -8,6 +8,8 @@ Designed to be launched via systemd on robot boot.
 Behaviour summary:
   • Button A         → runs 01_control_leds.py (non-blocking, in a thread)
   • Button B         → runs 02_arm_control.py (non-blocking, in a thread)
+  • Button X         → runs 03_english_tts.py (non-blocking, in a thread)
+  • Button Y         → plays example.wav via 02_playback_wav.py
   • A + B (combo)    → gracefully exits this controller and launches the
                        Unitree default joystick program
   • Any unregistered combo (e.g. L2+B) → silently ignored, single-button
@@ -70,10 +72,12 @@ def main():
     # ── Button bindings ──────────────────────────────────────────────────────
     #
     # Single buttons:
+    behavior.register_button("Start", behavior.action_button_start, cooldown=0.5)
     behavior.register_button("A", behavior.action_button_a, cooldown=1.0)
     #   cooldown=1.0 s prevents accidental double-fires of the LED script.
     behavior.register_button("B", behavior.action_button_b, cooldown=1.0)
     behavior.register_button("X", behavior.action_button_x, cooldown=2.0)
+    behavior.register_button("Y", behavior.action_button_y, cooldown=2.0)
     #   cooldown=2.0 s — TTS takes ~5 s to speak, prevents re-trigger mid-speech.
     #
     # Combos  (frozenset because button order doesn't matter):

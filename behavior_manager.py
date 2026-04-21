@@ -31,6 +31,10 @@ ARM_SCRIPT_PATH = os.path.join(os.path.dirname(__file__), "02_arm_control.py")
 # ─── Path to the TTS script ───────────────────────────────────────────────────
 TTS_SCRIPT_PATH = os.path.join(os.path.dirname(__file__), "03_english_tts.py")
 
+# ─── Path to the WAV playback script and audio file ──────────────────────────
+WAV_SCRIPT_PATH = os.path.join(os.path.dirname(__file__), "02_playback_wav.py")
+WAV_FILE_PATH   = os.path.join(os.path.dirname(__file__), "example.wav")
+
 # ─── Network interface for the Unitree SDK ────────────────────────────────────
 # 01_control_leds.py requires a network interface argument (e.g. "eth0").
 # Set this to the correct interface name on your robot.
@@ -77,6 +81,8 @@ class BehaviorManager:
         self._active_threads: dict[str, threading.Thread] = {}
         self._lock = threading.Lock()
 
+        self._listening = False
+
     # ── Registry API ─────────────────────────────────────────────────────────
 
     def register_button(self, button: str, action: Callable, cooldown: float = 0.5):
@@ -111,6 +117,17 @@ class BehaviorManager:
         Called by the main loop when a "button_press" event is received.
         Looks up the registered action and runs it in a background thread.
         """
+        # Start always toggles listening regardless of current state.
+        if button == "Start":
+            action = self._button_registry.get("Start")
+            if action:
+                self._dispatch("Start", action)
+            return
+
+        if not self._listening:
+            log.debug(f"Controller disabled — ignoring button [{button}]")
+            return
+
         action = self._button_registry.get(button)
         if action is None:
             log.debug(f"No action registered for button [{button}]")
@@ -122,6 +139,10 @@ class BehaviorManager:
         Called by the main loop when a "combo_press" event is received.
         Looks up the registered combo action and runs it in a background thread.
         """
+        if not self._listening:
+            log.debug(f"Controller disabled — ignoring combo {sorted(combo)}")
+            return
+
         action = self._combo_registry.get(combo)
         if action is None:
             log.debug(f"No action registered for combo {sorted(combo)}")
@@ -191,6 +212,12 @@ class BehaviorManager:
     # =========================================================================
     # ── BUILT-IN ACTIONS ─────────────────────────────────────────────────────
     # =========================================================================
+
+    def action_button_start(self):
+        """Start — toggles controller listening on/off."""
+        self._listening = not self._listening
+        state = "ENABLED" if self._listening else "DISABLED"
+        log.info(f"Controller listening {state}")
 
     def action_button_a(self):
         """
@@ -277,6 +304,30 @@ class BehaviorManager:
             log.error(f"TTS script not found: {TTS_SCRIPT_PATH}")
         except Exception as exc:
             log.exception(f"Unexpected error running TTS script: {exc}")
+
+    def action_button_y(self):
+        """Button Y — plays example.wav over the robot's speaker via 02_playback_wav.py."""
+        log.info("Button Y → launching WAV playback script")
+        try:
+            result = subprocess.run(
+                [sys.executable, WAV_SCRIPT_PATH, UNITREE_NETWORK_INTERFACE, WAV_FILE_PATH],
+                capture_output=True,
+                text=True,
+                timeout=60.0,
+            )
+            if result.returncode == 0:
+                log.info(f"WAV playback finished OK\n{result.stdout.strip()}")
+            else:
+                log.error(
+                    f"WAV playback exited with code {result.returncode}\n"
+                    f"stderr: {result.stderr.strip()}"
+                )
+        except subprocess.TimeoutExpired:
+            log.error("WAV playback timed out after 60 s")
+        except FileNotFoundError:
+            log.error(f"WAV playback script not found: {WAV_SCRIPT_PATH}")
+        except Exception as exc:
+            log.exception(f"Unexpected error running WAV playback: {exc}")
 
     def action_combo_ab(self):
         """

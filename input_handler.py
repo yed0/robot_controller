@@ -42,7 +42,7 @@ UNITREE_NETWORK_INTERFACE = "enP8p1s0"
 #   5 = RUN           — running             ("running mode")
 #
 # Run with DEBUG logging to observe actual values: logging.basicConfig(level=logging.DEBUG)
-ALLOWED_ROBOT_MODES: set[int] = {3, 4, 5}   # balance-stand, walk, run
+ALLOWED_ROBOT_MODES: set[int] = {5}   # running mode only
 
 # ─── Combo detection window ───────────────────────────────────────────────────
 # Two buttons pressed within this many seconds of each other count as a combo.
@@ -405,6 +405,7 @@ class GamepadHandler:
 
         prev: dict = {}
         _last_mode: list[int] = [-1]   # track mode changes for logging
+        _baseline_set: list[bool] = [False]  # True once we've silently consumed the first allowed cycle
 
         while not self._stop_event.is_set():
             time.sleep(0.02)   # 50 Hz
@@ -427,10 +428,22 @@ class GamepadHandler:
 
             # Only forward button events when the robot is in an allowed mode.
             if mode not in ALLOWED_ROBOT_MODES:
-                prev = {}   # reset so we get fresh edges when mode becomes allowed
+                # Reset baseline flag so we re-snapshot on next allowed entry.
+                _baseline_set[0] = False
+                prev = {}
                 continue
 
             current = _parse(remote)
+
+            # First cycle after entering an allowed mode: silently snapshot the
+            # current button state as a baseline.  Buttons held during the mode-
+            # switch (e.g. the button used to activate this mode) must not be
+            # treated as fresh presses.
+            if not _baseline_set[0]:
+                prev = current
+                _baseline_set[0] = True
+                continue
+
             for btn, val in current.items():
                 if val != prev.get(btn, 0):
                     self._push_button_event(btn, val)
